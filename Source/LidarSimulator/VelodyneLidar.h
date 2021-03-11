@@ -2,36 +2,43 @@
 
 #pragma once
 
+#include <vector>
+
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "BaseLidar.h"
 #include "VelodyneLidar.generated.h"
 
+/**
+ * 
+ */
 UCLASS()
-class LIDARSIMULATOR_API AVelodyneLidar : public AActor
+class LIDARSIMULATOR_API AVelodyneLidar : public ABaseLidar
 {
 	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
+
+public:
 	AVelodyneLidar();
+	void Tick(float DeltaTime) override;
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+	void SimulateScannig(float DeltaTime) override;
+	bool IsScanCompleted() override;
+	void CreateLasers();
 
 private:
 
-	//lidar description
+	//Lidar settings
+	const uint32 ChannelCount = 32u;
+	uint32 PointsPerSecond = 56000u;
+	float RotationFrequency = 10.0f;
+	float UpperFovLimit = 10.0f;
+	float LowerFovLimit = -30.0f;
+	float HorizontalFov = 360.0f;
 
-	int number_of_lasers = 32;
 
-	float vertical_FOV_upper = 30.0;
-
-	float current_horizontal_angle_ = 0.0f;
+	//Scan Settings
 	TArray<float> LaserAngles;
+	std::vector<uint32_t> PointsPerChannel;
+	float CurrentLidarHorizontalAngle = 0.0;
+	
 };
