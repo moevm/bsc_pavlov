@@ -12,7 +12,6 @@
 AVelodyneLidar::AVelodyneLidar() 
 	: ABaseLidar()
 {
-	//FString FileName = GetNameLidar()
 	PrimaryActorTick.bCanEverTick = true;
 	CreateLasers();
 	PointsPerChannel.resize(ChannelCount);
@@ -23,19 +22,14 @@ void AVelodyneLidar::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool AVelodyneLidar::IsScanCompleted()
-{
-	return false;
-}
-
 void AVelodyneLidar::CreateLasers()
 {
 	const auto NumberOfLasers = ChannelCount;
-	const float DeltaAngle = NumberOfLasers == 1u ? 0.f :
+	const float DeltaAngle = NumberOfLasers == 1 ? 0.f :
 		(UpperFovLimit - LowerFovLimit) /
 		static_cast<float>(NumberOfLasers - 1);
 	LaserAngles.Empty(NumberOfLasers);
-	for (auto i = 0u; i < NumberOfLasers; ++i)
+	for (auto i = 0; i < NumberOfLasers; ++i)
 	{
 		const float VerticalAngle = UpperFovLimit - static_cast<float>(i) * DeltaAngle;
 		LaserAngles.Emplace(VerticalAngle);
@@ -44,10 +38,9 @@ void AVelodyneLidar::CreateLasers()
 
 void AVelodyneLidar::SimulateScannig(float DeltaTime)
 {
-	PointCloud.clear();
+	Super::SimulateScannig(DeltaTime);
 	const uint32 PointsToScanWithOneLaser = FMath::RoundHalfFromZero(
 		PointsPerSecond * DeltaTime / float(ChannelCount));
-
 	if (PointsToScanWithOneLaser <= 0)
 	{
 		UE_LOG(
@@ -90,13 +83,103 @@ void AVelodyneLidar::SimulateScannig(float DeltaTime)
 
 			if (ShootLaser(VertAngle, HorizAngle, HitResult))
 			{
-				PointCloud.emplace_back(HitResult.ImpactPoint);
+				FTransform LidarTransform = GetActorTransform();
+				LidarDetection Detection = ComputeDetection(LidarTransform, HitResult);
+			//	AddGaussianNoise(Detection);
+			//	ComputeIntensity(Detection);
+				LidarDetectionPointCloud.emplace_back(Detection);
 			}
 		};
 	}
-	PointCloudWriter->WriteBufferToFile(PointCloudFileName, PointCloud);
 	const float HorizontalAngle = std::fmod(CurrentHorizontalAngle + AngleDistanceOfTick, HorizontalFov);
 	this->CurrentLidarHorizontalAngle = HorizontalAngle;
+}
+
+void AVelodyneLidar::SetChannelCount(int32 ChannelCount_)
+{
+	this->ChannelCount = ChannelCount_;
+}
+
+int32 AVelodyneLidar::GetChannelCount()
+{
+	return ChannelCount;
+}
+
+void AVelodyneLidar::SetPointsPerSecond(int32 PointsPerSecond_)
+{
+	this->PointsPerSecond = PointsPerSecond_;
+}
+
+int32 AVelodyneLidar::GetPointsPerSecond()
+{
+	return PointsPerSecond;
+}
+
+void AVelodyneLidar::SetRotationFrequency(float RotationFrequency_)
+{
+	this->RotationFrequency = RotationFrequency_;
+}
+
+float AVelodyneLidar::GetRotationFrequency()
+{
+	return RotationFrequency;
+}
+
+void AVelodyneLidar::SetUpperFovLimit(float UpperFovLimit_)
+{
+	this->UpperFovLimit = UpperFovLimit_;
+}
+
+float AVelodyneLidar::GetUpperFovLimit()
+{
+	return UpperFovLimit;
+}
+
+void AVelodyneLidar::SetLowerFovLimit(float LowerFovLimit_)
+{
+	this->LowerFovLimit = LowerFovLimit_;
+}
+
+float AVelodyneLidar::GetLowerFovLimit()
+{
+	return LowerFovLimit;
+}
+
+void AVelodyneLidar::SetHorizontalFov(float HorizontalFov_)
+{
+	this->HorizontalFov = HorizontalFov_;
+}
+
+float AVelodyneLidar::GetHorizontalFov()
+{
+	return HorizontalFov;
+}
+
+void AVelodyneLidar::ApplyVelodyneSettings(float Range_,
+											float NoiseStdDev_,
+											int32 ChannelCount_,
+											int32 PointsPerSecond_,
+											float RotationFrequency_,
+											float UpperFovLimit_,
+											float LowerFovLimit_,
+											float HorizontalFov_)
+{
+	Super::ApplySettings(Range_, NoiseStdDev_);
+	this->ChannelCount = ChannelCount_;
+	this->PointsPerSecond = PointsPerSecond_;
+	this->RotationFrequency = RotationFrequency_;
+	this->UpperFovLimit = UpperFovLimit_;
+	this->LowerFovLimit = LowerFovLimit_;
+	this->HorizontalFov = HorizontalFov_;
+
+	CreateLasers();
+	PointsPerChannel.resize(ChannelCount);
+}
+
+void AVelodyneLidar::ResetStateVariablesToInitial()
+{
+	Super::ResetStateVariablesToInitial();
+	this->CurrentLidarHorizontalAngle = 0.0;
 }
 
 

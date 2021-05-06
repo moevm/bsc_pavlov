@@ -18,39 +18,62 @@ class LIDARSIMULATOR_API ALivoxLidar : public ABaseLidar
 public:
 	ALivoxLidar();
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void SetFieldOfView(float FieldOfView_);
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		float GetFieldOfView();
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void SetPointsPerSecond(int32 PointsPerSecond_);
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		int32 GetPointsPerSecond();
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void SetPulseFreq(float PulseFreq_);
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		float GetPulseFreq();
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void SetFrequencyPrism_1(float FrequencyPrism_1_);
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		float GetFrequencyPrism_1();
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void SetFrequencyPrism_2(float FrequencyPrism_2_);
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		float GetFrequencyPrism_2();
+
+	UFUNCTION(BlueprintCallable, Category = "LidarSettings")
+		void ApplyLivoxSettings(float Range_,
+							float NoiseStdDev_,
+							float FieldOfView_, 
+							float FrequencyPrism_1_,
+							float FrequencyPrism_2_,
+							float PulseFreq_,
+							int32 PointsPerSecond_);
+	void ResetStateVariablesToInitial() override;
 protected:
-	float ScanningFunction();
+	void CalculateX();
+	void CalculateY();
 	void SetVerticalAngle();
 	void SetHorizontalAngle();
-	void CalculateAngleBetweenPulses();
-	void CalculateCurrentThetaAngle();
-	void CalculateAngleBetweenRoses();
 
 	void SimulateScannig(float DeltaTime) override;
-	bool IsScanCompleted() override;
-	void DoSimStep();
-
 private:
 	//Lidar settings
 	float FieldOfView = 38.4f;
-	uint32 NumberPetals = 5u;
-	float Theta = PI;
-	float W = 2 * PI;
-	uint32 PointsInOneRose = 1000u;
-	uint32 NumberRoses = 15u;
-	uint32 CountPoints = 0u;
+	int32 PointsPerSecond = 56000;
+	float PulseFreq = 100000.0f;
+	float FrequencyPrism_1 = 7294.0;
+	float FrequencyPrism_2 = -4664.0;
 
 
 	//State variables
-	float AngleBetweenPulses = 0.0f;
-	float AngleBetweenRoses = 0.0f;
-	float CurrentThetaAngle = 0.0f;
-	float CurrentR = 0.0f;
-	float CurrentW = 0.0f;
 	float CurrentVerticalAngle = 0.0f;
 	float CurrentHorizontalAngle = 0.0f;
-	uint32 CurrentNumberRoses = 0;
-
-	uint32 PointsPerSecond = 1000u;
-	//point cloud
+	float CurrentX = 0.0f;
+	float CurrentY = 0.0f;
+	float Time = 0.0f;
+	float DeltaT = 0.0f;
 };

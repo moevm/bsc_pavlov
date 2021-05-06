@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "Misc/FileHelper.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
+#include "LidarDetection.h"
 
 /**
  * 
@@ -15,9 +16,6 @@ class LIDARSIMULATOR_API FileWriter
 public:
 	FileWriter();
 	~FileWriter();
-	void TestMethod();
-	void CreateOutputDirectory();
-	void CreateOutputFile(FString OutputFileName);
-	void WriteBufferToFile(FString OutputFileName, std::vector<FVector>& Buffer);
+	void WriteBufferToFile(FString OutputFileName, std::vector<LidarDetection>& Buffer);
 private:
 };

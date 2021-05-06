@@ -1,17 +1,20 @@
 
 #include "BaseLidar.h"
 
+#include "Math/Vector.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
 
 ABaseLidar::ABaseLidar()
 {
-	++ID;
-	LidarName = GetName() + "_" + FString::FromInt(ID);
-	PointCloudFileName = LidarName + "_" + FDateTime::Now().ToString() + ".xyz";
+	//create static mesh lidar
+	Mesh = CreateDefaultSubobject<UStaticMeshComponent>("Mesh");
+	RootComponent = Mesh;
+
+	LidarName = GetName();
+	PointCloudFileName = LidarName + "_" + FDateTime::Now().ToString() + ".csv";
 	PrimaryActorTick.bCanEverTick = true;
-	PointCloudWriter = new FileWriter();
-	UE_LOG(LogTemp, Warning, TEXT("LidarName = %s"), *LidarName);
+	PointCloudWriter = std::make_unique<FileWriter>();
 }
 
 void ABaseLidar::BeginPlay()
@@ -19,7 +22,6 @@ void ABaseLidar::BeginPlay()
 	Super::BeginPlay();
 	OnPostTickDelegate = FWorldDelegates::OnWorldPostActorTick.AddUObject(
 		this, &ABaseLidar::PostPhysTick);
-	
 }
 
 void ABaseLidar::Tick(float DeltaTime)
@@ -30,22 +32,22 @@ void ABaseLidar::Tick(float DeltaTime)
 
 void ABaseLidar::PostPhysTick(UWorld* World, ELevelTick TickType, float DeltaSeconds)
 {
-	/*if (this->bIsPaused || IsScanCompleted())*/
-	if (this->bIsPaused || bIsPointCloudRecorded)
+	if (!bIsActive)
 	{
 		return;
 	}
-	else if (IsScanCompleted())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Write to file"));
-		PointCloudWriter->WriteBufferToFile(PointCloudFileName, PointCloud);
-		PointCloud.clear();
-		bIsPointCloudRecorded = true;
-	}
 	else
 	{
+		LidarDetectionPointCloud.clear();
 		SimulateScannig(DeltaSeconds);
+		PointCloudWriter->WriteBufferToFile(PointCloudFileName, LidarDetectionPointCloud);
+		LidarDetectionPointCloud.clear();
 	}
+}
+
+void ABaseLidar::SimulateScannig(float DeltaTime)
+{
+	TimeStampLidar += DeltaTime;
 }
 
 
@@ -88,9 +90,9 @@ bool ABaseLidar::ShootLaser(const float VerticalAngle, float HorizontalAngle, FH
 			DrawDebugPoint(
 				GetWorld(),
 				HitInfo.ImpactPoint,
-				5,                       //size
+				2,                       //size
 				FColor::Red,
-				true,                    //persistent (never goes away)
+				false,                    //persistent (never goes away)
 				0.1                      //point leaves a trail on moving object
 			);
 		}
@@ -106,28 +108,42 @@ bool ABaseLidar::ShootLaser(const float VerticalAngle, float HorizontalAngle, FH
 bool ABaseLidar::IsScanCompleted()
 {
 	return false;
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("Base")
-	);
 }
 
-
-void ABaseLidar::StopScannig()
+LidarDetection ABaseLidar::ComputeDetection(FTransform& LidarTransform, FHitResult& HitResult)
 {
-	SetActorTickEnabled(false);
-	FWorldDelegates::OnWorldPostActorTick.Remove(OnPostTickDelegate);
+	LidarDetection Detection;
+	if (bInWorldCoordinates)
+	{
+		Detection.Point = HitResult.ImpactPoint;
+	}
+	else
+	{
+		const FVector HitPoint = HitResult.ImpactPoint;
+		Detection.Point = LidarTransform.Inverse().TransformPosition(HitPoint);
+	}
+	AddGaussianNoise(Detection);
+	ComputeIntensity(Detection);
+	Detection.TimeStamp = TimeStampLidar;
+	return Detection;
 }
 
-void ABaseLidar::PauseScanning(bool State)
+void ABaseLidar::AddGaussianNoise(LidarDetection& Detection)
 {
-	this->bIsPaused = State;
+	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine generator(seed);
+	std::normal_distribution<double> distribution(0.0, NoiseStdDev);
+	FVector UnitVector = Detection.Point;
+	UnitVector.Normalize();
+	FVector Noise = UnitVector * distribution(generator);
+	Detection.Point += Noise;
 }
 
-bool ABaseLidar::GetIsPaused()
+void ABaseLidar::ComputeIntensity(LidarDetection& Detection)
 {
-	return this->bIsPaused;
+	float Distance = Detection.Point.Size();
+	float Intensity = exp(-AtmospAttenRate * Distance);
+	Detection.Intensity = Intensity;
 }
 
 void ABaseLidar::SetIsActive(bool State)
@@ -143,6 +159,92 @@ FString ABaseLidar::GetNameLidar()
 {
 	return LidarName;
 }
+
+void ABaseLidar::SetLidarName(FString LidarName_)
+{
+	this->LidarName = LidarName_;
+}
+
+FString ABaseLidar::GetPointCloudFileName()
+{
+	return PointCloudFileName;
+}
+
+void ABaseLidar::SetPointCloudFileName(FString PointCloudFileName_)
+{
+	this->PointCloudFileName = LidarName + "_" + FDateTime::Now().ToString() + ".csv";
+}
+
+void ABaseLidar::SetRange(float Range_)
+{
+	this->Range = Range_;
+}
+
+float ABaseLidar::GetRange()
+{
+	return Range;
+}
+
+void ABaseLidar::ApplySettings(float Range_, float NoiseStdDev_)
+{
+	this->Range = Range_;
+	this->NoiseStdDev = NoiseStdDev_;
+}
+
+void ABaseLidar::ResetStateVariablesToInitial()
+{
+	this->TimeStampLidar = 0.0;
+}
+
+void ABaseLidar::SetbDrawLaserLines(bool State)
+{
+	this->bDrawLaserLines = State;
+}
+
+bool ABaseLidar::GetbDrawLaserLines()
+{
+	return bDrawLaserLines;
+}
+
+void ABaseLidar::SetbDrawHitPoints(bool State)
+{
+	this->bDrawHitPoints = State;
+}
+
+bool ABaseLidar::GetbDrawHitPoints()
+{
+	return bDrawHitPoints;
+}
+
+void ABaseLidar::SetbInWorldCoordinates(bool State)
+{
+	this->bInWorldCoordinates = State;
+}
+bool ABaseLidar::GetbInWorldCoordinates()
+{
+	return bInWorldCoordinates;
+}
+
+void ABaseLidar::SetNoiseStdDev(float NoiseStdDev_)
+{
+	this->NoiseStdDev = NoiseStdDev_;
+}
+
+float ABaseLidar::GetNoiseStdDev()
+{
+	return NoiseStdDev;
+}
+
+void ABaseLidar::SetAtmospAttenRate(float AtmospAttenRate_)
+{
+	this->AtmospAttenRate = AtmospAttenRate_;
+}
+
+float ABaseLidar::GetAtmospAttenRate()
+{
+	return AtmospAttenRate;
+}
+
 
 
 
