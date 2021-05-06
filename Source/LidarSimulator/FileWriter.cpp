@@ -5,32 +5,18 @@
 
 FileWriter::FileWriter()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Constructor FileWriter"));
+	
 }
 
 FileWriter::~FileWriter()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Destructor FileWriter"));
+	
 }
 
-void FileWriter::TestMethod()
-{
-	UE_LOG(LogTemp, Warning, TEXT("TestMethod from FileWriter"));
-}
-
-void FileWriter::CreateOutputDirectory()
-{
-
-}
-void FileWriter::CreateOutputFile(FString OutputFileName)
-{
-
-}
-void FileWriter::WriteBufferToFile(FString OutputFileName, std::vector<FVector>& Buffer)
+void FileWriter::WriteBufferToFile(FString OutputFileName, std::vector<LidarDetection>& Buffer)
 {
 	FString ProjectDirectory = FPaths::ProjectDir();
 	FString OutputDirectory = ProjectDirectory + (TEXT("Output"));
-	/*FString OutputPathToFile = OutputDirectory + FGenericPlatformMisc::GetDefaultPathSeparator() + (TEXT("Test.txt"));*/
 	FString OutputPathToFile = OutputDirectory + FGenericPlatformMisc::GetDefaultPathSeparator() + OutputFileName;
 
 	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
@@ -61,10 +47,13 @@ void FileWriter::WriteBufferToFile(FString OutputFileName, std::vector<FVector>&
 		FString ResultPointCloud = "";
 		for (size_t i = 0; i < Buffer.size(); i++)
 		{
-			FVector Point = Buffer[i];
-			ResultPointCloud.Append(FString::SanitizeFloat(Point[0]) + " ")
+			LidarDetection Detection = Buffer[i];
+			FVector Point = Detection.Point;
+			ResultPointCloud.Append(FString::SanitizeFloat(Detection.TimeStamp) + " ")
+							.Append(FString::SanitizeFloat(Point[0]) + " ")
 							.Append(FString::SanitizeFloat(Point[1]) + " ")
-							.Append(FString::SanitizeFloat(Point[2]) + "\n");
+							.Append(FString::SanitizeFloat(Point[2]) + " ")
+							.Append(FString::SanitizeFloat(Detection.Intensity) + "\n");
 		}
 		if (FFileHelper::SaveStringToFile(ResultPointCloud, *OutputPathToFile, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append))
 		{
